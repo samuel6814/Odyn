@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import Hero from "./components/Hero";
 
 
 
@@ -21,7 +22,7 @@ const App = () => {
     <Container>
       
       <Section id="home">
-        <Hero />
+        <Hero/>
       </Section>
     
 
