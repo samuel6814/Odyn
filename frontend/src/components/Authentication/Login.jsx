@@ -2,11 +2,12 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link, useNavigate } from 'react-router-dom';
-// UPDATED: Corrected import paths
 import api from '../../services/api';
-import Navbar from '../Navbar';
+import Navbar from '../Navbar'; // Corrected import path
+import { useAuth } from "../Context/AuthContext"; // 1. Import useAuth
 
-// This wrapper now acts as a flex column container
+// --- STYLED COMPONENTS ---
+
 const PageWrapper = styled.div`
   display: flex;
   flex-direction: column;
@@ -14,7 +15,6 @@ const PageWrapper = styled.div`
   background-color: #1A103C;
 `;
 
-// This wrapper will center the form in the remaining space
 const ContentWrapper = styled.div`
   flex-grow: 1;
   display: flex;
@@ -101,6 +101,7 @@ function Login() {
     password: '',
   });
   const navigate = useNavigate();
+  const { login } = useAuth(); // 2. Get the login function from context
 
   const { email, password } = formData;
 
@@ -111,12 +112,10 @@ function Login() {
     e.preventDefault();
     try {
       const res = await api.post('/auth/login', formData);
-      // Save the token to the browser's local storage
-      localStorage.setItem('token', res.data.token);
-      alert('Login successful!');
-      navigate('/dashboard'); // Redirect to the dashboard on success
+      // 3. Use the context login function instead of localStorage directly
+      login(res.data.token);
+      navigate('/dashboard');
     } catch (err) {
-      // Use the error message from the backend if it exists
       const errorMessage = err.response?.data?.msg || 'An error occurred during login.';
       alert(errorMessage);
       console.error(err.response?.data);

@@ -1,5 +1,7 @@
 import styled from "styled-components";
 import Hero from "./components/Hero";
+import CampaignHub from "./components/CampaignHub";
+import Footer from "./components/Footer";
 
 
 
@@ -23,6 +25,14 @@ const App = () => {
       
       <Section id="home">
         <Hero/>
+      </Section>
+
+      <Section>
+        <CampaignHub/>
+      </Section>
+
+      <Section>
+        <Footer/>
       </Section>
     
 

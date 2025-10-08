@@ -5,6 +5,7 @@ import { NavLink, useNavigate, Link } from 'react-router-dom';
 import { Home, LayoutGrid, User, MessagesSquare, LogOut } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import api from '../services/api';
+import { useAuth } from '../components/Context/AuthContext'; // 1. Import useAuth
 
 // --- STYLED COMPONENTS ---
 
@@ -142,49 +143,55 @@ const DayButton = styled(Link)`
   }
 `;
 
-// --- SAMPLE DATA ---
-const weeklyActivityData = [
-  { day: 'Mon', xp: 40 }, { day: 'Tue', xp: 60 }, { day: 'Wed', xp: 50 },
-  { day: 'Thu', xp: 80 }, { day: 'Fri', xp: 100 }, { day: 'Sat', xp: 70 }, { day: 'Sun', xp: 90 },
-];
-
 // --- THE COMPONENT ---
 
 function Dashboard() {
-  const [userData, setUserData] = useState(null);
+  // 2. Get user data from context and set up local state for dashboard-specific data
+  const { user, logout } = useAuth();
   const [progressData, setProgressData] = useState([]);
+  const [activityData, setActivityData] = useState([]);
   const navigate = useNavigate();
 
+  // 3. Update useEffect to fetch only dashboard-specific data (progress and activity)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [userRes, progressRes] = await Promise.all([
-          api.get('/dashboard'),
-          api.get('/progress')
+        const [progressRes, activityRes] = await Promise.all([
+          api.get('/progress'),
+          api.get('/progress/activity'),
         ]);
-        setUserData(userRes.data);
+        
         setProgressData(progressRes.data);
+
+        const formattedActivity = activityRes.data.map(item => ({
+          day: new Date(item._id).toLocaleDateString('en-US', { weekday: 'short' }),
+          xp: item.totalXp,
+        }));
+        setActivityData(formattedActivity);
+
       } catch (err) {
-        console.error('Failed to fetch data', err);
+        console.error('Failed to fetch dashboard data', err);
         handleLogout();
       }
     };
-    fetchData();
-  }, []);
+
+    if (user) {
+      fetchData();
+    }
+  }, [user]); // The dependency on 'user' means this will re-run when the user object in the context is updated
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    logout(); // Use the logout function from context
     navigate('/login');
   };
-
-  // Create a Set of completed day numbers for quick lookup
+  
   const completedDays = new Set(
     progressData
       .filter(p => p.status === 'completed' && p.lesson)
       .map(p => p.lesson.day)
   );
 
-  if (!userData) {
+  if (!user) {
     return <div style={{ color: 'white', textAlign: 'center', paddingTop: '10rem' }}>Loading Dashboard...</div>;
   }
 
@@ -204,21 +211,23 @@ function Dashboard() {
         <TopBar>
           <WelcomeHeader>
             <p>Welcome Back!</p>
-            <h1>{userData.name}</h1>
+            {/* 4. Use user data from context */}
+            <h1>{user.name}</h1>
           </WelcomeHeader>
         </TopBar>
         
         <WidgetsGrid>
           <WidgetCard>
             <CardTitle>Total XP & Streak</CardTitle>
-            <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#FFF' }}>{userData.xp} XP</div>
-            <p style={{ color: '#A9A9B2' }}>Current Streak: {userData.streak} Days 🔥</p>
+            <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#FFF' }}>{user.xp} XP</div>
+            <p style={{ color: '#A9A9B2' }}>Current Streak: {user.streak || 0} Days 🔥</p>
           </WidgetCard>
 
           <WidgetCard>
             <CardTitle>Weekly Activity</CardTitle>
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={weeklyActivityData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+              {/* 5. Use dynamic activityData for the chart */}
+              <BarChart data={activityData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                 <XAxis dataKey="day" tick={{ fill: '#A9A9B2' }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: '#A9A9B2' }} tickLine={false} axisLine={false} />

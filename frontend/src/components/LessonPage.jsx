@@ -6,6 +6,7 @@ import Editor from '@monaco-editor/react';
 import Navbar from '../components/Navbar';
 import { Play, Target, Award, ArrowRight, Sparkles } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../components/Context/AuthContext'; // 1. Import useAuth
 
 // --- STYLED COMPONENTS ---
 
@@ -173,28 +174,26 @@ const AIButton = styled.button`
 `;
 
 function LessonPage() {
-  // Get the day number from the URL
   const { day } = useParams();
   const navigate = useNavigate();
   const editorRef = useRef(null);
+  const { refetchUser } = useAuth(); // 2. Get the refetch function from context
   
-  // State for lesson data, editor content, and challenge logic
   const [lesson, setLesson] = useState(null);
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [attempts, setAttempts] = useState(0);
 
-  // Fetch lesson data when the page loads or the day in the URL changes
   useEffect(() => {
     const fetchLesson = async () => {
       try {
         const res = await api.get(`/lessons/${day}`);
         setLesson(res.data);
-        setCode(res.data.starterCode || ''); // Set editor content from fetched data
+        setCode(res.data.starterCode || '');
       } catch (err) {
         console.error("Failed to fetch lesson", err);
-        navigate('/dashboard'); // Redirect if lesson not found
+        navigate('/dashboard');
       }
     };
     fetchLesson();
@@ -208,7 +207,6 @@ function LessonPage() {
     if (!editorRef.current || !lesson) return;
     
     const userCode = editorRef.current.getValue();
-    // Use the expected output from the fetched lesson data
     const expectedOutput = lesson.expectedOutput + '\n';
     let consoleOutput = '';
 
@@ -219,9 +217,21 @@ function LessonPage() {
     }
 
     if (consoleOutput.trim() === expectedOutput.trim()) {
-      setOutput('Success! Output is correct.\n\n' + consoleOutput);
-      setIsCorrect(true);
-      // In the future, you would add an API call here to update user progress/XP
+      const saveProgress = async () => {
+        try {
+          await api.post('/progress', {
+            lessonId: lesson._id,
+            status: 'completed'
+          });
+          setOutput('Success! Output is correct. Your progress has been saved.\n\n' + consoleOutput);
+          setIsCorrect(true);
+          refetchUser(); // 3. Refetch user data to update XP globally
+        } catch (err) {
+          console.error("Failed to save progress", err);
+          setOutput('Output was correct, but there was an error saving your progress. Please try again.');
+        }
+      };
+      saveProgress();
     } else {
       setOutput('Almost there! The output is not quite right. Keep trying.\n\nYour output:\n' + consoleOutput);
       setIsCorrect(false);
@@ -229,12 +239,10 @@ function LessonPage() {
     }
   }
 
-  // Show a loading state while fetching data
   if (!lesson) {
     return <div style={{ color: 'white', textAlign: 'center', paddingTop: '10rem' }}>Loading Lesson...</div>;
   }
 
-  // Render the page with dynamic data
   return (
     <LessonWrapper>
       <Navbar />
