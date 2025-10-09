@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import Navbar from '../Navbar'; // Corrected import path
-import { useAuth } from "../Context/AuthContext"; // 1. Import useAuth
+import Navbar from '../Navbar';
+import { useAuth } from '../Context/AuthContext'; // 1. Import useAuth
 
 // --- STYLED COMPONENTS ---
 
@@ -112,8 +112,8 @@ function Login() {
     e.preventDefault();
     try {
       const res = await api.post('/auth/login', formData);
-      // 3. Use the context login function instead of localStorage directly
-      login(res.data.token);
+      // 3. Use the context login function, and await it
+      await login(res.data.token);
       navigate('/dashboard');
     } catch (err) {
       const errorMessage = err.response?.data?.msg || 'An error occurred during login.';

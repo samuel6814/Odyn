@@ -1,44 +1,33 @@
-import styled from "styled-components";
-import Hero from "./components/Hero";
-import CampaignHub from "./components/CampaignHub";
-import Footer from "./components/Footer";
+// in frontend/src/App.jsx
+import { Routes, Route } from 'react-router-dom';
+import HomeLayout from './HomeLayout'; // Import the new layout
+import Login from './components/Authentication/Login';
+import Register from './components/Authentication/Register';
+import Dashboard from './components/Dashboard';
+import LessonPage from './components/LessonPage';
+import PrivateRoute from './components/PrivateRoute';
+import PrivateRoute2 from './components/PrivateRoute2';
+import CampaignHub from './components/CampaignHub';
 
-
-
-const Container = styled.div`
-  height: 100vh;
-  scroll-snap-type: y mandatory;
-  scrollbar-width: none;
-  color: white;
-  &::-webkit-scrollbar {
-    display: none;
-  }
-`;
-
-const Section = styled.div`
-  scroll-snap-align: start; 
-`;
-
-const App = () => {
+function App() {
   return (
-    <Container>
+    <Routes>
+      {/* The root path now renders your scroll-snap page */}
+      <Route path="/" element={<HomeLayout />} />
+
+      {/* All other routes render their own pages */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       
-      <Section id="home">
-        <Hero/>
-      </Section>
-
-      <Section>
-        <CampaignHub/>
-      </Section>
-
-      <Section>
-        <Footer/>
-      </Section>
+      <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+      <Route path="/lesson/:day" element={<PrivateRoute><LessonPage /></PrivateRoute>} />
+      <Route 
+        path="/campaign" 
+        element={<PrivateRoute2><CampaignHub /></PrivateRoute2>} 
+      />
     
-
-    </Container>
+    </Routes>
   );
-};
+}
 
 export default App;
-    

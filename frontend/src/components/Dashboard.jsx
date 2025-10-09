@@ -5,7 +5,7 @@ import { NavLink, useNavigate, Link } from 'react-router-dom';
 import { Home, LayoutGrid, User, MessagesSquare, LogOut } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import api from '../services/api';
-import { useAuth } from '../components/Context/AuthContext'; // 1. Import useAuth
+import { useAuth } from './Context/AuthContext';
 
 // --- STYLED COMPONENTS ---
 
@@ -146,13 +146,11 @@ const DayButton = styled(Link)`
 // --- THE COMPONENT ---
 
 function Dashboard() {
-  // 2. Get user data from context and set up local state for dashboard-specific data
   const { user, logout } = useAuth();
   const [progressData, setProgressData] = useState([]);
   const [activityData, setActivityData] = useState([]);
   const navigate = useNavigate();
 
-  // 3. Update useEffect to fetch only dashboard-specific data (progress and activity)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -178,10 +176,10 @@ function Dashboard() {
     if (user) {
       fetchData();
     }
-  }, [user]); // The dependency on 'user' means this will re-run when the user object in the context is updated
+  }, [user]);
 
   const handleLogout = () => {
-    logout(); // Use the logout function from context
+    logout();
     navigate('/login');
   };
   
@@ -211,7 +209,6 @@ function Dashboard() {
         <TopBar>
           <WelcomeHeader>
             <p>Welcome Back!</p>
-            {/* 4. Use user data from context */}
             <h1>{user.name}</h1>
           </WelcomeHeader>
         </TopBar>
@@ -226,7 +223,6 @@ function Dashboard() {
           <WidgetCard>
             <CardTitle>Weekly Activity</CardTitle>
             <ResponsiveContainer width="100%" height={200}>
-              {/* 5. Use dynamic activityData for the chart */}
               <BarChart data={activityData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
                 <XAxis dataKey="day" tick={{ fill: '#A9A9B2' }} tickLine={false} axisLine={false} />

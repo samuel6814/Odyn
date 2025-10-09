@@ -6,7 +6,8 @@ import Editor from '@monaco-editor/react';
 import Navbar from '../components/Navbar';
 import { Play, Target, Award, ArrowRight, Sparkles } from 'lucide-react';
 import api from '../services/api';
-import { useAuth } from '../components/Context/AuthContext'; // 1. Import useAuth
+import { useAuth } from './Context/AuthContext';
+import { runPython } from '../services/pyodideService';
 
 // --- STYLED COMPONENTS ---
 
@@ -105,7 +106,7 @@ const ConsoleOutput = styled.pre`
   white-space: pre-wrap;
   word-wrap: break-word;
   font-family: monospace;
-  color: ${props => props.isCorrect ? '#22C55E' : '#E5E7EB'};
+  color: ${props => props.isCorrect ? '#22C55E' : (props.isError ? '#F87171' : '#E5E7EB')};
   flex-grow: 1;
   overflow-y: auto;
 `;
@@ -132,6 +133,11 @@ const RunButton = styled.button`
 
   &:hover {
     background-color: #5ffbff;
+  }
+  
+  &:disabled {
+    background-color: #555;
+    cursor: not-allowed;
   }
 `;
 
@@ -176,14 +182,15 @@ const AIButton = styled.button`
 function LessonPage() {
   const { day } = useParams();
   const navigate = useNavigate();
-  const editorRef = useRef(null);
-  const { refetchUser } = useAuth(); // 2. Get the refetch function from context
+  const { refetchUser } = useAuth();
   
   const [lesson, setLesson] = useState(null);
   const [code, setCode] = useState('');
   const [output, setOutput] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isError, setIsError] = useState(false);
 
   useEffect(() => {
     const fetchLesson = async () => {
@@ -198,46 +205,50 @@ function LessonPage() {
     };
     fetchLesson();
   }, [day, navigate]);
-
-  function handleEditorDidMount(editor, monaco) {
-    editorRef.current = editor;
-  }
-
-  function handleRunCode() {
-    if (!editorRef.current || !lesson) return;
+  
+  const handleRunCode = async () => {
+    if (!lesson || isRunning) return;
     
-    const userCode = editorRef.current.getValue();
-    const expectedOutput = lesson.expectedOutput + '\n';
-    let consoleOutput = '';
+    setIsRunning(true);
+    setOutput('Running code...');
+    setIsCorrect(false);
+    setIsError(false);
 
-    const printRegex = /print\((['"])(.*?)\1\)/g;
-    let match;
-    while ((match = printRegex.exec(userCode)) !== null) {
-      consoleOutput += match[2] + '\n';
-    }
+    try {
+      const { output: consoleOutput, error } = await runPython(code);
 
-    if (consoleOutput.trim() === expectedOutput.trim()) {
-      const saveProgress = async () => {
+      if (error) {
+        setOutput(`Runtime Error:\n${error}`);
+        setAttempts(prev => prev + 1);
+        setIsError(true);
+        return;
+      }
+
+      const expectedOutput = lesson.expectedOutput;
+      if (consoleOutput.trim() === expectedOutput.trim()) {
+        setOutput(`Success! Output is correct.\n\n${consoleOutput}`);
+        setIsCorrect(true);
         try {
           await api.post('/progress', {
             lessonId: lesson._id,
             status: 'completed'
           });
-          setOutput('Success! Output is correct. Your progress has been saved.\n\n' + consoleOutput);
-          setIsCorrect(true);
-          refetchUser(); // 3. Refetch user data to update XP globally
-        } catch (err) {
-          console.error("Failed to save progress", err);
-          setOutput('Output was correct, but there was an error saving your progress. Please try again.');
+          refetchUser();
+        } catch (saveError) {
+          console.error("Failed to save progress", saveError);
+          setOutput(prev => prev + "\n\nWarning: Could not save progress.");
         }
-      };
-      saveProgress();
-    } else {
-      setOutput('Almost there! The output is not quite right. Keep trying.\n\nYour output:\n' + consoleOutput);
-      setIsCorrect(false);
-      setAttempts(prev => prev + 1);
+      } else {
+        setOutput(`Almost there! The output is not quite right. Keep trying.\n\nYour output:\n${consoleOutput}`);
+        setAttempts(prev => prev + 1);
+      }
+    } catch (err) {
+      setOutput(`An unexpected error occurred: ${err.message}`);
+      setIsError(true);
+    } finally {
+      setIsRunning(false);
     }
-  }
+  };
 
   if (!lesson) {
     return <div style={{ color: 'white', textAlign: 'center', paddingTop: '10rem' }}>Loading Lesson...</div>;
@@ -249,9 +260,7 @@ function LessonPage() {
       <ContentGrid>
         <InstructionsPanel>
           <h1>Day {lesson.day}: {lesson.title}</h1>
-          
           <p>{lesson.description}</p>
-
           <InfoBox>
             <IconWrapper><Target color="#00F6FF" size={24} /></IconWrapper>
             <div>
@@ -259,7 +268,6 @@ function LessonPage() {
               <p>{lesson.objective}</p>
             </div>
           </InfoBox>
-          
           <InfoBox>
             <IconWrapper><Award color="#FBBC05" size={24} /></IconWrapper>
             <div>
@@ -278,33 +286,19 @@ function LessonPage() {
               theme="vs-dark"
               value={code}
               onChange={(value) => setCode(value)}
-              onMount={handleEditorDidMount}
             />
           </EditorPanel>
-          
           <ConsolePanel>
             <PanelHeader>Console</PanelHeader>
-            <ConsoleOutput isCorrect={isCorrect}>{output}</ConsoleOutput>
+            <ConsoleOutput isCorrect={isCorrect} isError={isError}>{output}</ConsoleOutput>
           </ConsolePanel>
-
           <ActionButtons>
-            <RunButton onClick={handleRunCode}>
+            <RunButton onClick={handleRunCode} disabled={isRunning}>
               <Play size={18} />
-              Run Code
+              {isRunning ? 'Running...' : 'Run Code'}
             </RunButton>
-
-            {isCorrect && (
-              <NextButton>
-                Next Lesson <ArrowRight size={18} />
-              </NextButton>
-            )}
-
-            {!isCorrect && attempts >= 2 && (
-              <AIButton>
-                <Sparkles size={18} />
-                Ask AI for a Hint
-              </AIButton>
-            )}
+            {isCorrect && (<NextButton>Next Lesson <ArrowRight size={18} /></NextButton>)}
+            {!isCorrect && attempts >= 2 && (<AIButton><Sparkles size={18} /> Ask AI for a Hint</AIButton>)}
           </ActionButtons>
         </EditorColumn>
       </ContentGrid>
